@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Cortex Debug",
+            "cwd": "${workspaceFolder}",
+            "executable": "./build/${workspaceFolderBasename}.elf",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "STM32F401CC",
+            "interface": "swd",
+            "preLaunchCommands": [
+                "monitor reset halt",
+            ],
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+            "swoConfig": {
+                "source": "probe",
+                "enabled": true,
+                "swoFrequency": 1800000,
+                "cpuFrequency": 84000000,
+                "decoders": [
+                    {
+                        "label": "ITM Port 0 Output",
+                        "type": "console",
+                        "showOnStartup": true,
+                        "port": 0,
+                        "encoding": "utf8"
+                    }
+                ]
+            }
+        }
+    ]
+}
