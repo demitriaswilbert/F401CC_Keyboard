@@ -22,7 +22,7 @@ TARGET = STM32F401CC_Test_Pins
 # debug build?
 DEBUG = 1
 # optimization
-OPT = -O0
+OPT = -O3
 
 
 #######################################

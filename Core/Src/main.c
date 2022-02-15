@@ -66,7 +66,7 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 
 HID_StateTypeDef USBD_Keyboard_State()
 {
-    return ((USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state;
+    return ((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state;
 }
 
 PinId_t* colPins[15] = {
@@ -78,6 +78,13 @@ PinId_t* colPins[15] = {
 PinId_t* rowPins[5] = {
     PA8, PA9, PA10, PA15, PB3, 
 };
+
+typedef struct
+{
+    uint8_t length;
+    uint8_t busy;
+    uint8_t data[10];
+}send_t;
 
 /* USER CODE END 0 */
 
@@ -116,6 +123,31 @@ int main(void)
     int rowPressed[6] = {-1, -1, -1, -1, -1, -1};
     int alternatekey[6] = {0};
     int nPressed = 0;
+    GPIOC->ODR |= (1U << 13U);
+
+    send_t sendMedia[2] = {
+        {0, 0, {0}},
+        {0, 0, {0}}
+    };
+    send_t sendNormal[2] = {
+        {0, 0, {0}},
+        {0, 0, {0}}
+    };
+    
+    // while (1)
+    // {
+    //     KeyboardHID_t myhid = {1, 0, 0, {0x2c, 0, 0, 0, 0, 0}};
+    //     USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myhid, sizeof(myhid));
+    //     while(USBD_Keyboard_State() != HID_IDLE)
+    //         ;
+    //     myhid.KEYCODE[0] = 0;
+    //     USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myhid, sizeof(myhid));
+    //     while(USBD_Keyboard_State() != HID_IDLE)
+    //         ;
+    //     // memset(&myhid, 0, sizeof(myhid));
+    //     // if(time > 0)
+    //     GPIOC->ODR ^= (1U << 13U);
+    // }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -128,12 +160,11 @@ int main(void)
 
         static int update = 0;
         static int alternate = 0;
-        
-        uint32_t tick = HAL_GetTick();
+        GPIOC->ODR ^= (1U << 13U);
         for(int i = 0; i < 5; i++)
         {
             PinId_Write(rowPins[i], 0);
-            for(volatile int j = 0; j < 10; j++)
+            for(volatile int j = 0; j < 500; j++)
                 ;
             for(int j = 0; j < 15; j++)
             {
@@ -184,14 +215,13 @@ int main(void)
             }
             PinId_Write(rowPins[i], 1);
         }
-        tick = HAL_GetTick() - tick;
+        // uint32_t time = HAL_GetTick();
         if(update)
         {
-            KeyboardHID_t myhid = {0};
+            KeyboardHID_t myhid = {1};
             uint8_t mediaBuf[3] = {0x02, 0, 0};
             int media = 0; static int mediaprev = 0;
             int normal = 0; static int normalprev = 0;
-            myhid.ID = 1;
             for(int i = 0; i < 6; i++)
             {
                 if(colPressed[i] != -1)
@@ -220,23 +250,76 @@ int main(void)
             }
             if(normal > 0 || normalprev > 0)
             {
-                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myhid, sizeof(myhid));
-                while(USBD_Keyboard_State() != HID_IDLE)
-                    ;
-                memset(&myhid, 0, sizeof(myhid));
+                if(sendNormal[0].busy == 0)
+                {
+                    memcpy((void*)&sendNormal[0].data, (const void*)&myhid, sizeof(myhid));
+                    sendNormal[0].length = sizeof(myhid);
+                }
+                else
+                {
+                    memcpy((void*)&sendNormal[1].data, (const void*)&myhid, sizeof(myhid));
+                    sendNormal[1].length = sizeof(myhid);
+                }
+                memset(&myhid.MODIFIER, 0, 8U);
                 normalprev = normal;
             }
             if(media > 0 || mediaprev > 0)
             {
-                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)mediaBuf, sizeof(mediaBuf));
-                while(USBD_Keyboard_State() != HID_IDLE)
-                    ;
-                memset(mediaBuf, 0, sizeof(mediaBuf));
+                if(sendMedia[0].busy == 0)
+                {
+                    memcpy((void*)&sendMedia[0].data, (const void*)&mediaBuf, sizeof(mediaBuf));
+                    sendMedia[0].length = sizeof(mediaBuf);
+                }
+                else
+                {
+                    memcpy((void*)&sendMedia[1].data, (const void*)&mediaBuf, sizeof(mediaBuf));
+                    sendMedia[1].length = sizeof(mediaBuf);
+                }
+                // while(USBD_Keyboard_State() != HID_IDLE)
+                //     ;
+                memset(&mediaBuf[1], 0, 2);
                 mediaprev = media;
             }
             update = 0;
         }
-        HAL_Delay(0);
+        static int iter = 0;
+        if(USBD_Keyboard_State() == HID_IDLE)
+        {
+            if(!iter)
+            {
+                static int i = 0;
+                if (sendMedia[i].length > 0 && sendMedia[i].busy == 0)
+                {
+                    USBD_HID_SendReport(&hUsbDeviceFS, sendMedia[i].data, sendMedia[i].length);
+                    sendMedia[i].length = 0;
+                    sendMedia[i].busy = 1;
+                }
+                else if(sendMedia[i].length == 0)
+                {
+                    sendMedia[i].busy = 0;
+                    i = !i;
+                }
+                iter = 1;
+            }
+            else
+            {
+                static int i = 0;
+                if (sendNormal[i].length > 0 && sendNormal[i].busy == 0)
+                {
+                    USBD_HID_SendReport(&hUsbDeviceFS, sendNormal[i].data, sendNormal[i].length);
+                    sendNormal[i].length = 0;
+                    sendNormal[i].busy = 1;
+                }
+                else if(sendNormal[i].length == 0)
+                {
+                    sendNormal[i].busy = 0;
+                    i = !i;
+                }
+                iter = 0;
+            }
+        }
+        // while(time == HAL_GetTick())
+        //     ;
     }
   /* USER CODE END 3 */
 }
@@ -342,6 +425,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_15, GPIO_PIN_SET);
@@ -378,6 +462,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 }
 

@@ -37,6 +37,7 @@ uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k)
     }
     return 0;
 }
+
 void USBD_Keyboard_releaseAll(KeyboardHID_t* pKeyboardHid)
 {
     pKeyboardHid->KEYCODE[0] = 0;
@@ -46,5 +47,4 @@ void USBD_Keyboard_releaseAll(KeyboardHID_t* pKeyboardHid)
     pKeyboardHid->KEYCODE[4] = 0;
     pKeyboardHid->KEYCODE[5] = 0;
     pKeyboardHid->MODIFIER = 0;
-    // USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&pKeyboardHid, sizeof(pKeyboardHid));
 }
