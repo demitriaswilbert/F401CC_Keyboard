@@ -1,15 +1,156 @@
 #include "keyboard_map.h"
 
+/*
+ * 0x00XX -> Normal
+ * 0x01XX -> Modifier
+ * 0x02XX -> Normal Non-printing
+ * 0x03XX -> ASCII Shift
+ * 0x80XX -> Media
+*/
+
+#define SHIFT 0x0300U
+const uint16_t _asciimap[128] =
+{
+    0x00, // NUL
+    0x00, // SOH
+    0x00, // STX
+    0x00, // ETX
+    0x00, // EOT
+    0x00, // ENQ
+    0x00, // ACK
+    0x00, // BEL
+    0x2a, // BS	Backspace
+    0x2b, // TAB	Tab
+    0x28, // LF	Enter
+    0x00, // VT
+    0x00, // FF
+    0x00, // CR
+    0x00, // SO
+    0x00, // SI
+    0x00, // DEL
+    0x00, // DC1
+    0x00, // DC2
+    0x00, // DC3
+    0x00, // DC4
+    0x00, // NAK
+    0x00, // SYN
+    0x00, // ETB
+    0x00, // CAN
+    0x00, // EM
+    0x00, // SUB
+    0x00, // ESC
+    0x00, // FS
+    0x00, // GS
+    0x00, // RS
+    0x00, // US
+    0x2c,         //  ' '
+    0x1e, // !
+    0x34, // "
+    0x20, // #
+    0x21, // $
+    0x22, // %
+    0x24, // &
+    0x34,         // '
+    0x26, // (
+    0x27, // )
+    0x25, // *
+    0x2e, // +
+    0x36,         // ,
+    0x2d,         // -
+    0x37,         // .
+    0x38,         // /
+    0x27,         // 0
+    0x1e,         // 1
+    0x1f,         // 2
+    0x20,         // 3
+    0x21,         // 4
+    0x22,         // 5
+    0x23,         // 6
+    0x24,         // 7
+    0x25,         // 8
+    0x26,         // 9
+    0x33, // :
+    0x33,         // ;
+    0x36, // <
+    0x2e,         // =
+    0x37, // >
+    0x38, // ?
+    0x1f, // @
+    0x04, // A
+    0x05, // B
+    0x06, // C
+    0x07, // D
+    0x08, // E
+    0x09, // F
+    0x0a, // G
+    0x0b, // H
+    0x0c, // I
+    0x0d, // J
+    0x0e, // K
+    0x0f, // L
+    0x10, // M
+    0x11, // N
+    0x12, // O
+    0x13, // P
+    0x14, // Q
+    0x15, // R
+    0x16, // S
+    0x17, // T
+    0x18, // U
+    0x19, // V
+    0x1a, // W
+    0x1b, // X
+    0x1c, // Y
+    0x1d, // Z
+    0x2f,         // [
+    0x31,         // bslash
+    0x30,         // ]
+    0x23, // ^
+    0x2d, // _
+    0x35,         // `
+    0x04,         // a
+    0x05,         // b
+    0x06,         // c
+    0x07,         // d
+    0x08,         // e
+    0x09,         // f
+    0x0a,         // g
+    0x0b,         // h
+    0x0c,         // i
+    0x0d,         // j
+    0x0e,         // k
+    0x0f,         // l
+    0x10,         // m
+    0x11,         // n
+    0x12,         // o
+    0x13,         // p
+    0x14,         // q
+    0x15,         // r
+    0x16,         // s
+    0x17,         // t
+    0x18,         // u
+    0x19,         // v
+    0x1a,         // w
+    0x1b,         // x
+    0x1c,         // y
+    0x1d,         // z
+    0x2f, // {
+    0x31, // |
+    0x30, // }
+    0x35, // ~
+    0             // DEL
+};
+
 uint16_t keys[] = {
-    KEY_ESC,        0x1e,     0x1f,     0x20,     0x21,     0x22,     0x23,     0x24,     0x25,     0x26,     0x27,     0x2d,      0x2e,            KEY_BACKSPACE, 0x35,
-    KEY_TAB,        0x14,     0x1a,     0x08,     0x15,     0x17,     0x1c,     0x18,     0x0c,     0x12,     0x13,     0x2f,      0x30,            0x31,          KEY_DELETE,
-    KEY_CAPS_LOCK,  0x04,     0x16,     0x07,     0x09,     0x0a,     0x0b,     0x0d,     0x0e,     0x0f,     0x33,     0x34,      0x00,            KEY_RETURN,    KEY_PAGE_UP,
-    KEY_LEFT_SHIFT, 0x1d,     0x1b,     0x06,     0x19,     0x05,     0x11,     0x10,     0x36,     0x37,     0x38,     0x00,      KEY_RIGHT_SHIFT, KEY_UP_ARROW,  KEY_PAGE_DOWN,
-    KEY_LEFT_CTRL,  KEY_LEFT_GUI, KEY_LEFT_ALT, 0x00, 0x00, 0x2c,     0x00,     0x00,     0x00, KEY_RIGHT_ALT, 0x00, KEY_RIGHT_CTRL, KEY_LEFT_ARROW, KEY_DOWN_ARROW, KEY_RIGHT_ARROW,
+    KEY_ESC,        '1',      '2',      '3',     '4',      '5',      '6',      '7',      '8',      '9',      '0',      '-',        '=',              KEY_BACKSPACE, '`',
+    KEY_TAB,        'q',      'w',      'e',     'r',      't',      'y',      'u',      'i',      'o',      'p',      '[',        ']',              '\\',          KEY_DELETE,
+    KEY_CAPS_LOCK,  'a',      's',      'd',     'f',      'g',      'h',      'j',      'k',      'l',      ';',      '\'',       0x00,            KEY_RETURN,    KEY_PAGE_UP,
+    KEY_LEFT_SHIFT, 'z',      'x',      'c',     'v',      'b',      'n',      'm',      ',',      '.',      '/',       0x00,      KEY_RIGHT_SHIFT, KEY_UP_ARROW,  KEY_PAGE_DOWN,
+    KEY_LEFT_CTRL,  KEY_LEFT_GUI, KEY_LEFT_ALT, 0x00, 0x00, ' ',     0x00,     0x00,     0x00, KEY_RIGHT_ALT, 0x00, KEY_RIGHT_CTRL, KEY_LEFT_ARROW, KEY_DOWN_ARROW, KEY_RIGHT_ARROW,
 };
  
 uint16_t keys_alternate[] = { 
-    0x00, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12, 0x00,   0x46, 
+    0x00, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12, 0x00,   KEY_PRTSC, 
     0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00, KEY_MEDIA_MUTE,   KEY_INSERT,
     0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00,    0x00,   KEY_HOME,
     0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00, KEY_MEDIA_VOLUP, KEY_END,
@@ -18,21 +159,69 @@ uint16_t keys_alternate[] = {
 
 uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k)
 {
-    uint8_t i;
+    uint8_t i; uint16_t retVal = k;
     if ((k & 0xff00) == 0x100)
     { // it's a modifier key
-        pKeyboardHid->MODIFIER |= k & 0xff;
-        k = 0;
+        pKeyboardHid->MODIFIER |= (k & 0xff);
+        return retVal;
     }
-    if (!k)
+    else if ((k & 0xff00) == 0x200)
+    { // normal non-printing
+        k &= 0xFFU;
+    }
+    else if ((k & 0xff00) == 0x300)
+    { // ascii shift
+        pKeyboardHid->MODIFIER |= (KEY_LEFT_SHIFT & 0xff);
+        k = _asciimap[k & 0xffU];
+    }
+    else if ((k & 0xff00) == 0x0U)
+    { // ascii
+        k = _asciimap[k & 0xffU];
+    }
+    else if (!k)
         return 0;
 
     for (i = 0; i < 6; i++)
     {
         if (pKeyboardHid->KEYCODE[i] == 0x00)
         {
-            pKeyboardHid->KEYCODE[i] = k;
-            return 1;
+            pKeyboardHid->KEYCODE[i] = (uint8_t)k;
+            return retVal;
+        }
+    }
+    return 0;
+}
+
+uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, uint16_t k)
+{
+    uint8_t i; uint16_t retVal = k;
+    if ((k & 0xff00) == 0x100)
+    { // it's a modifier key
+        pKeyboardHid->MODIFIER &= ~(k & 0xff);
+        return retVal;
+    }
+    else if ((k & 0xff00) == 0x200)
+    { // normal non-printing
+        k &= 0xFFU;
+    }
+    else if ((k & 0xff00) == 0x300)
+    { // ascii shift
+        pKeyboardHid->MODIFIER &= ~(KEY_LEFT_SHIFT & 0xff);
+        k = _asciimap[k & 0xffU];
+    }
+    else if ((k & 0xff00) == 0x0U)
+    { // ascii
+        k = _asciimap[k & 0xffU];
+    }
+    else if (!k)
+        return 0;
+
+    for (i = 0; i < 6; i++)
+    {
+        if (pKeyboardHid->KEYCODE[i] == k)
+        {
+            pKeyboardHid->KEYCODE[i] = 0;
+            return retVal;
         }
     }
     return 0;

@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "text.h"
 #include "GPIO_Config.h"
 #include "keyboard_map.h"
 #include "string.h"
@@ -97,150 +97,14 @@ PinId_t* rowPins[5] = {
     PB3,
 };
 
+KeyboardHID_t myHID = {1};
+uint16_t Pressed[75] = {0};
+uint16_t TimeOut[75] = {0};
+
 volatile int enablescan = 1;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) 
 {
-    if(htim == &htim3)
-    {
-        static int colPressed[6] = {-1, -1, -1, -1, -1, -1};
-        static int rowPressed[6] = {-1, -1, -1, -1, -1, -1};
-        static int alternatekey[6] = {0};
-        static int nPressed = 0;
-        static int update = 0;
-        static int alternate = 0;
-        for (int i = 0; i < 5; i++)
-        {
-            PinId_Write(rowPins[i], 0);
-            for (volatile int j = 0; j < 10; j++)
-                ;
-            for (int j = 0; j < 15; j++)
-            {
-                if (!PinId_Read(colPins[j]))
-                {
-                    if (i * 15 + j == 70)
-                    {
-                        alternate = 1;
-                        continue;
-                    }
 
-                    int emptyPos = -1;
-                    for (int k = 0; k < 6 && nPressed < 6; k++)
-                    {
-                        if (colPressed[k] == j && rowPressed[k] == i)
-                        {
-                            emptyPos = -1;
-                            break;
-                        }
-                        if (colPressed[k] == -1)
-                        {
-                            emptyPos = (emptyPos == -1) ? k : emptyPos;
-                        }
-                    }
-                    if (emptyPos != -1)
-                    {
-                        colPressed[emptyPos] = j;
-                        rowPressed[emptyPos] = i;
-                        alternatekey[emptyPos] = alternate;
-                        nPressed++;
-                        update = 1;
-                        // CDC_Transmit_FS((uint8_t*) "scanning\r\n", (uint16_t)10);
-                    }
-                }
-                else
-                {
-                    if (i * 15 + j == 70)
-                    {
-                        alternate = 0;
-                        continue;
-                    }
-
-                    for (int k = 0; k < 6 && nPressed > 0; k++)
-                    {
-                        if (colPressed[k] == j && rowPressed[k] == i)
-                        {
-                            colPressed[k] = -1;
-                            rowPressed[k] = -1;
-                            alternatekey[k] = 0;
-                            nPressed--;
-                            update = 1;
-                            break;
-                        }
-                    }
-                }
-            }
-            PinId_Write(rowPins[i], 1);
-        }
-        // uint32_t time = HAL_GetTick();
-        if (update)
-        {
-            KeyboardHID_t myhid = {1};
-            uint8_t mediaBuf[3] = {0x02, 0, 0};
-            int media = 0;
-            static int mediaprev = 0;
-            int normal = 0;
-            static int normalprev = 0;
-            for (int i = 0; i < 6; i++)
-            {
-                if (colPressed[i] != -1)
-                {
-                    if (alternatekey[i])
-                    {
-                        uint16_t key = keys_alternate[rowPressed[i] * 15 + colPressed[i]];
-                        if (key != 0)
-                        {
-                            if ((key & 0xff00) == 0x8000)
-                            {
-                                mediaBuf[1] = (uint8_t)(key & 0xffU);
-                                alternate = 1;
-                                media++;
-                            }
-                            else
-                            {
-                                USBD_Keyboard_press(&myhid, key);
-                                normal++;
-                            }
-                            continue;
-                        }
-                    }
-                    USBD_Keyboard_press(&myhid, keys[rowPressed[i] * 15 + colPressed[i]]);
-                    normal++;
-                }
-            }
-            if (normal > 0 || normalprev > 0)
-            {
-                if (sendNormal[0].busy == 0)
-                {
-                    memcpy((void*)&sendNormal[0].data, (const void*)&myhid, sizeof(myhid));
-                    sendNormal[0].length = sizeof(myhid);
-                }
-                else
-                {
-                    memcpy((void*)&sendNormal[1].data, (const void*)&myhid, sizeof(myhid));
-                    sendNormal[1].length = sizeof(myhid);
-                }
-                memset(&myhid.MODIFIER, 0, 8U);
-                normalprev = normal;
-            }
-            if (media > 0 || mediaprev > 0)
-            {
-                if (sendMedia[0].busy == 0)
-                {
-                    memcpy((void*)&sendMedia[0].data, (const void*)&mediaBuf, sizeof(mediaBuf));
-                    sendMedia[0].length = sizeof(mediaBuf);
-                }
-                else
-                {
-                    memcpy((void*)&sendMedia[1].data, (const void*)&mediaBuf, sizeof(mediaBuf));
-                    sendMedia[1].length = sizeof(mediaBuf);
-                }
-                // while(USBD_Keyboard_State() != HID_IDLE)
-                //     ;
-                memset(&mediaBuf[1], 0, 2);
-                mediaprev = media;
-            }
-            update = 0;
-        }
-    }
 }
 
 
@@ -250,7 +114,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
  * @brief  The application entry point.
  * @retval int
  */
-int __attribute__((optimize("-Og"))) main(void)
+int __attribute__((optimize("-O0"))) main(void)
 {
     /* USER CODE BEGIN 1 */
 
@@ -279,22 +143,8 @@ int __attribute__((optimize("-Og"))) main(void)
     /* USER CODE BEGIN 2 */
     TIM3->PSC = (84000000 / 1000000) - 1;
     TIM3->ARR = (1000000 / 2000) - 1;
-    HAL_TIM_Base_Start_IT(&htim3);
+    // HAL_TIM_Base_Start_IT(&htim3);
 
-    // while (1)
-    // {
-    //     KeyboardHID_t myhid = {1, 0, 0, {0x2c, 0, 0, 0, 0, 0}};
-    //     USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myhid, sizeof(myhid));
-    //     while(USBD_Keyboard_State() != HID_IDLE)
-    //         ;
-    //     myhid.KEYCODE[0] = 0;
-    //     USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myhid, sizeof(myhid));
-    //     while(USBD_Keyboard_State() != HID_IDLE)
-    //         ;
-    //     // memset(&myhid, 0, sizeof(myhid));
-    //     // if(time > 0)
-    //     GPIOC->ODR ^= (1U << 13U);
-    // }
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -304,164 +154,65 @@ int __attribute__((optimize("-Og"))) main(void)
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
-    // {
-    //     static int colPressed[6] = {-1, -1, -1, -1, -1, -1};
-    //     static int rowPressed[6] = {-1, -1, -1, -1, -1, -1};
-    //     static int alternatekey[6] = {0};
-    //     static int nPressed = 0;
-    //     static int update = 0;
-    //     static int alternate = 0;
-    //     GPIOC->ODR ^= (1U << 13U);
-    //     for (int i = 0; i < 5; i++)
-    //     {
-    //         PinId_Write(rowPins[i], 0);
-    //         for (volatile int j = 0; j < 10; j++)
-    //             ;
-    //         for (int j = 0; j < 15; j++)
-    //         {
-    //             if (!PinId_Read(colPins[j]))
-    //             {
-    //                 if (i * 15 + j == 70)
-    //                 {
-    //                     alternate = 1;
-    //                     continue;
-    //                 }
-    //                 int emptyPos = -1;
-    //                 for (int k = 0; k < 6 && nPressed < 6; k++)
-    //                 {
-    //                     if (colPressed[k] == j && rowPressed[k] == i)
-    //                     {
-    //                         emptyPos = -1;
-    //                         break;
-    //                     }
-    //                     if (colPressed[k] == -1)
-    //                     {
-    //                         emptyPos = (emptyPos == -1) ? k : emptyPos;
-    //                     }
-    //                 }
-    //                 if (emptyPos != -1)
-    //                 {
-    //                     colPressed[emptyPos] = j;
-    //                     rowPressed[emptyPos] = i;
-    //                     alternatekey[emptyPos] = alternate;
-    //                     nPressed++;
-    //                     update = 1;
-    //                     // CDC_Transmit_FS((uint8_t*) "scanning\r\n", (uint16_t)10);
-    //                 }
-    //             }
-    //             else
-    //             {
-    //                 if (i * 15 + j == 70)
-    //                 {
-    //                     alternate = 0;
-    //                     continue;
-    //                 }
-    //                 for (int k = 0; k < 6 && nPressed > 0; k++)
-    //                 {
-    //                     if (colPressed[k] == j && rowPressed[k] == i)
-    //                     {
-    //                         colPressed[k] = -1;
-    //                         rowPressed[k] = -1;
-    //                         alternatekey[k] = 0;
-    //                         nPressed--;
-    //                         update = 1;
-    //                         break;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         PinId_Write(rowPins[i], 1);
-    //     }
-    //     // uint32_t time = HAL_GetTick();
-    //     if (update)
-    //     {
-    //         KeyboardHID_t myhid = {1};
-    //         uint8_t mediaBuf[3] = {0x02, 0, 0};
-    //         int media = 0;
-    //         static int mediaprev = 0;
-    //         int normal = 0;
-    //         static int normalprev = 0;
-    //         for (int i = 0; i < 6; i++)
-    //         {
-    //             if (colPressed[i] != -1)
-    //             {
-    //                 if (alternatekey[i])
-    //                 {
-    //                     uint16_t key = keys_alternate[rowPressed[i] * 15 + colPressed[i]];
-    //                     if (key != 0)
-    //                     {
-    //                         if ((key & 0xff00) == 0x8000)
-    //                         {
-    //                             mediaBuf[1] = (uint8_t)(key & 0xffU);
-    //                             alternate = 1;
-    //                             media++;
-    //                         }
-    //                         else
-    //                         {
-    //                             USBD_Keyboard_press(&myhid, key);
-    //                             normal++;
-    //                         }
-    //                         continue;
-    //                     }
-    //                 }
-    //                 USBD_Keyboard_press(&myhid, keys[rowPressed[i] * 15 + colPressed[i]]);
-    //                 normal++;
-    //             }
-    //         }
-    //         if (normal > 0 || normalprev > 0)
-    //         {
-    //             if (sendNormal[0].busy == 0)
-    //             {
-    //                 memcpy((void*)&sendNormal[0].data, (const void*)&myhid, sizeof(myhid));
-    //                 sendNormal[0].length = sizeof(myhid);
-    //             }
-    //             else
-    //             {
-    //                 memcpy((void*)&sendNormal[1].data, (const void*)&myhid, sizeof(myhid));
-    //                 sendNormal[1].length = sizeof(myhid);
-    //             }
-    //             memset(&myhid.MODIFIER, 0, 8U);
-    //             normalprev = normal;
-    //         }
-    //         if (media > 0 || mediaprev > 0)
-    //         {
-    //             if (sendMedia[0].busy == 0)
-    //             {
-    //                 memcpy((void*)&sendMedia[0].data, (const void*)&mediaBuf, sizeof(mediaBuf));
-    //                 sendMedia[0].length = sizeof(mediaBuf);
-    //             }
-    //             else
-    //             {
-    //                 memcpy((void*)&sendMedia[1].data, (const void*)&mediaBuf, sizeof(mediaBuf));
-    //                 sendMedia[1].length = sizeof(mediaBuf);
-    //             }
-    //             // while(USBD_Keyboard_State() != HID_IDLE)
-    //             //     ;
-    //             memset(&mediaBuf[1], 0, 2);
-    //             mediaprev = media;
-    //         }
-    //         update = 0;
-    //     }
-    // }
-        static int iter = 0;
-        static int i = 0;
-        HID_StateTypeDef USB_State = ((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state;
-        if (USB_State == HID_IDLE)
+        static int update = 0;
+        static int alternate = 0;
+        for(int i = 0; i < 5; i++)
         {
-            send_t* pSend = (send_t*)((iter)? sendMedia : sendNormal);
-            if (pSend[i].length > 0 && pSend[i].busy == 0)
+            PinId_Write(rowPins[i], 0);
+            for(volatile int j = 0; j < 10; j++)
+                ;
+            for(int j = 0; j < 15; j++)
             {
-                pSend[i].busy = 1;
-                USBD_HID_SendReport(&hUsbDeviceFS, pSend[i].data, pSend[i].length);
-                pSend[i].length = 0;
+                int pos = i * 15 + j;
+                if(!PinId_Read(colPins[j]))
+                {
+                    if(pos == 70) 
+                    {
+                        alternate = 1; continue;
+                    }
+                    uint16_t key = keys[pos];
+                    if(alternate && keys_alternate[pos] != 0)
+                        key = keys_alternate[pos];
+                    if(Pressed[pos] == 0 && TimeOut[pos] == 0)
+                    {
+                        if(USBD_Keyboard_press(&myHID, key) == key)
+                        {
+                            Pressed[pos] = key;
+                            update |= 1U;
+                        }
+                    }
+                    TimeOut[pos] = 50;
+                }
+                else
+                {
+                    if(pos == 70) 
+                    {
+                        alternate = 0; continue;
+                    }
+
+                    if(Pressed[pos] != 0)
+                    {
+                        if(USBD_Keyboard_release(&myHID, Pressed[pos]) == Pressed[pos])
+                        {
+                            Pressed[pos] = 0;
+                            update |= 2U;
+                        }
+                    }
+                    TimeOut[pos] = TimeOut[pos] > 0? (TimeOut[pos] - 1) : 0;
+                }
             }
-            else if (pSend[i].length == 0)
-            {
-                pSend[i].busy = 0;
-                i = !i;
-            }
-            iter = iter ^ i;
+            PinId_Write(rowPins[i], 1);
         }
+        
+        if(update)
+        {   
+            myHID.ID = 1;
+            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myHID, sizeof(myHID));
+            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                    ;
+            update = 0;
+        }
+        HAL_Delay(0);
     }
     /* USER CODE END 3 */
 }
