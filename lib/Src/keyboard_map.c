@@ -44,17 +44,17 @@ const uint16_t _asciimap[128] =
     0x00, // RS
     0x00, // US
     0x2c,         //  ' '
-    0x1e, // !
-    0x34, // "
-    0x20, // #
-    0x21, // $
-    0x22, // %
-    0x24, // &
+    0x1e | SHIFT, // !
+    0x34 | SHIFT, // "
+    0x20 | SHIFT, // #
+    0x21 | SHIFT, // $
+    0x22 | SHIFT, // %
+    0x24 | SHIFT, // &
     0x34,         // '
-    0x26, // (
-    0x27, // )
-    0x25, // *
-    0x2e, // +
+    0x26 | SHIFT, // (
+    0x27 | SHIFT, // )
+    0x25 | SHIFT, // *
+    0x2e | SHIFT, // +
     0x36,         // ,
     0x2d,         // -
     0x37,         // .
@@ -69,44 +69,44 @@ const uint16_t _asciimap[128] =
     0x24,         // 7
     0x25,         // 8
     0x26,         // 9
-    0x33, // :
+    0x33 | SHIFT, // :
     0x33,         // ;
-    0x36, // <
+    0x36 | SHIFT, // <
     0x2e,         // =
-    0x37, // >
-    0x38, // ?
-    0x1f, // @
-    0x04, // A
-    0x05, // B
-    0x06, // C
-    0x07, // D
-    0x08, // E
-    0x09, // F
-    0x0a, // G
-    0x0b, // H
-    0x0c, // I
-    0x0d, // J
-    0x0e, // K
-    0x0f, // L
-    0x10, // M
-    0x11, // N
-    0x12, // O
-    0x13, // P
-    0x14, // Q
-    0x15, // R
-    0x16, // S
-    0x17, // T
-    0x18, // U
-    0x19, // V
-    0x1a, // W
-    0x1b, // X
-    0x1c, // Y
-    0x1d, // Z
+    0x37 | SHIFT, // >
+    0x38 | SHIFT, // ?
+    0x1f | SHIFT, // @
+    0x04 | SHIFT, // A
+    0x05 | SHIFT, // B
+    0x06 | SHIFT, // C
+    0x07 | SHIFT, // D
+    0x08 | SHIFT, // E
+    0x09 | SHIFT, // F
+    0x0a | SHIFT, // G
+    0x0b | SHIFT, // H
+    0x0c | SHIFT, // I
+    0x0d | SHIFT, // J
+    0x0e | SHIFT, // K
+    0x0f | SHIFT, // L
+    0x10 | SHIFT, // M
+    0x11 | SHIFT, // N
+    0x12 | SHIFT, // O
+    0x13 | SHIFT, // P
+    0x14 | SHIFT, // Q
+    0x15 | SHIFT, // R
+    0x16 | SHIFT, // S
+    0x17 | SHIFT, // T
+    0x18 | SHIFT, // U
+    0x19 | SHIFT, // V
+    0x1a | SHIFT, // W
+    0x1b | SHIFT, // X
+    0x1c | SHIFT, // Y
+    0x1d | SHIFT, // Z
     0x2f,         // [
     0x31,         // bslash
     0x30,         // ]
-    0x23, // ^
-    0x2d, // _
+    0x23 | SHIFT, // ^
+    0x2d | SHIFT, // _
     0x35,         // `
     0x04,         // a
     0x05,         // b
@@ -134,10 +134,10 @@ const uint16_t _asciimap[128] =
     0x1b,         // x
     0x1c,         // y
     0x1d,         // z
-    0x2f, // {
-    0x31, // |
-    0x30, // }
-    0x35, // ~
+    0x2f | SHIFT, // {
+    0x31 | SHIFT, // |
+    0x30 | SHIFT, // }
+    0x35 | SHIFT, // ~
     0             // DEL
 };
 
@@ -169,14 +169,11 @@ uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k)
     { // normal non-printing
         k &= 0xFFU;
     }
-    else if ((k & 0xff00) == 0x300)
-    { // ascii shift
-        pKeyboardHid->MODIFIER |= (KEY_LEFT_SHIFT & 0xff);
-        k = _asciimap[k & 0xffU];
-    }
     else if ((k & 0xff00) == 0x0U)
     { // ascii
         k = _asciimap[k & 0xffU];
+        if ((k & 0xff00) == SHIFT)
+            pKeyboardHid->MODIFIER |= (KEY_LEFT_SHIFT & 0xff);
     }
     else if (!k)
         return 0;
@@ -204,14 +201,11 @@ uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, uint16_t k)
     { // normal non-printing
         k &= 0xFFU;
     }
-    else if ((k & 0xff00) == 0x300)
-    { // ascii shift
-        pKeyboardHid->MODIFIER &= ~(KEY_LEFT_SHIFT & 0xff);
-        k = _asciimap[k & 0xffU];
-    }
     else if ((k & 0xff00) == 0x0U)
     { // ascii
         k = _asciimap[k & 0xffU];
+        if ((k & 0xff00) == SHIFT)
+            pKeyboardHid->MODIFIER &= ~(KEY_LEFT_SHIFT & 0xff);
     }
     else if (!k)
         return 0;
