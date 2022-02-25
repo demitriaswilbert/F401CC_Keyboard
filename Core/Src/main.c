@@ -156,20 +156,35 @@ int __attribute__((optimize("-O0"))) main(void)
         /* USER CODE BEGIN 3 */
         static int update = 0;
         static int alternate = 0;
+        static int shit = 0;
+        static int clean = 0;
+        static uint8_t shitActivate = 0;
+        static int textPos = 0;
         for(int i = 0; i < 5; i++)
         {
             PinId_Write(rowPins[i], 0);
-            for(volatile int j = 0; j < 10; j++)
+            volatile uint32_t j = 0;
+            for(; j < 10; j++)
                 ;
-            for(int j = 0; j < 15; j++)
+            for(j = 0; j < 15; j++)
             {
-                int pos = i * 15 + j;
+                uint32_t pos = i * 15 + j;
                 if(!PinId_Read(colPins[j]))
                 {
                     if(pos == 70) 
                     {
                         alternate = 1; continue;
                     }
+                    if(j == 14)
+                    {
+                        shitActivate |= (1U << i);
+                        if((shitActivate == 0x1f) && (alternate == 1))
+                        {
+                            if(shit == 0U) shit = 2U;
+                            else if(shit == 3U) shit = 1U;
+                        }
+                    }
+                    
                     uint16_t key = keys[pos];
                     if(alternate && keys_alternate[pos] != 0)
                         key = keys_alternate[pos];
@@ -189,7 +204,21 @@ int __attribute__((optimize("-O0"))) main(void)
                     {
                         alternate = 0; continue;
                     }
+                    
+                    if(j == 14)
+                    {
+                        shitActivate &= ~(1U << i);
+                        if(shitActivate == 0)
+                        {
+                            int prevShit = shit;
+                            if(shit == 2U) shit = 3U;
+                            else if(shit == 1U) shit = 0U;
+                            if(prevShit != shit)
+                                {clean = 1; textPos = 0;}
+                        }
+                    }
 
+                    TimeOut[pos] = TimeOut[pos] > 0? (TimeOut[pos] - 1) : 0;
                     if(Pressed[pos] != 0)
                     {
                         if(USBD_Keyboard_release(&myHID, Pressed[pos]) == Pressed[pos])
@@ -198,7 +227,6 @@ int __attribute__((optimize("-O0"))) main(void)
                             update |= 2U;
                         }
                     }
-                    TimeOut[pos] = TimeOut[pos] > 0? (TimeOut[pos] - 1) : 0;
                 }
             }
             PinId_Write(rowPins[i], 1);
@@ -206,10 +234,34 @@ int __attribute__((optimize("-O0"))) main(void)
         
         if(update)
         {   
-            myHID.ID = 1;
-            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myHID, sizeof(myHID));
-            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-                    ;
+            if(clean)
+            {
+                const uint8_t tmp[9] = {1, 0, 0, 0, 0, 0, 0, 0, 0};
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)tmp, sizeof(myHID));
+                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                        ;
+                clean = 0;
+            }
+            if(((update & 1U) == 1U) && shit == 3)
+            {
+                KeyboardHID_t shitHID = {1, 0, 0, {0, 0, 0, 0, 0, 0}};
+                USBD_Keyboard_press(&shitHID, txt[textPos]);
+                textPos = (textPos + 1) % size_txt; 
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
+                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                        ;
+                USBD_Keyboard_releaseAll(&shitHID);
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
+                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                        ;
+            }
+            else if (shit == 0)
+            {
+                myHID.ID = 1;
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myHID, sizeof(myHID));
+                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                        ;
+            }
             update = 0;
         }
         HAL_Delay(0);
