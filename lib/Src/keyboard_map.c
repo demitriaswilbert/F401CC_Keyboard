@@ -169,6 +169,11 @@ uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k)
     { // normal non-printing
         k &= 0xFFU;
     }
+    else if ((k & 0xff00) == 0x0300U)
+    { // ascii
+        k = _asciimap[k & 0xffU];
+        pKeyboardHid->MODIFIER |= (KEY_LEFT_SHIFT & 0xff);
+    }
     else if ((k & 0xff00) == 0x0U)
     { // ascii
         k = _asciimap[k & 0xffU];
@@ -200,6 +205,11 @@ uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, uint16_t k)
     else if ((k & 0xff00) == 0x200)
     { // normal non-printing
         k &= 0xFFU;
+    }
+    else if ((k & 0xff00) == 0x0300U)
+    { // ascii
+        k = _asciimap[k & 0xffU];
+        pKeyboardHid->MODIFIER &= ~(KEY_LEFT_SHIFT & 0xff);
     }
     else if ((k & 0xff00) == 0x0U)
     { // ascii
