@@ -101,10 +101,134 @@ KeyboardHID_t myHID = {1};
 uint16_t Pressed[75] = {0};
 uint16_t TimeOut[75] = {0};
 
-volatile int enablescan = 1;
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) 
+void keyboardService()
 {
+    static int update = 0;
+    static int alternate = 0;
+    static int shit = 0;
+    static int clean = 0;
+    static uint8_t shitActivate = 0;
+    static int textPos = 0;
+    for(int i = 0; i < 5; i++)
+    {
+        PinId_Write(rowPins[i], 0);
+        volatile uint32_t j = 0;
+        for(; j < 10; j++)
+            ;
+        for(j = 0; j < 15; j++)
+        {
+            uint32_t pos = i * 15 + j;
+            if(!PinId_Read(colPins[j]))
+            {
+                if(pos == 70) 
+                {
+                    alternate = 1; continue;
+                }
+                if(j == 14)
+                {
+                    shitActivate |= (1U << i);
+                    if((shitActivate == 0x1f) && (alternate == 1))
+                    {
+                        if(shit == 0U) shit = 2U;
+                        else if(shit == 3U) shit = 1U;
+                    }
+                }
+                
+                uint16_t key = keys[pos];
+                if(alternate && keys_alternate[pos] != 0)
+                    key = keys_alternate[pos];
+                if(Pressed[pos] == 0 && TimeOut[pos] == 0)
+                {
+                    if(USBD_Keyboard_press(&myHID, key) == key)
+                    {
+                        Pressed[pos] = key;
+                        update |= 1U;
+                    }
+                }
+                TimeOut[pos] = 50;
+            }
+            else
+            {
+                if(pos == 70) 
+                {
+                    alternate = 0; continue;
+                }
+                
+                if(j == 14)
+                {
+                    shitActivate &= ~(1U << i);
+                    if(shitActivate == 0)
+                    {
+                        int prevShit = shit;
+                        if(shit == 2U) shit = 3U;
+                        else if(shit == 1U) shit = 0U;
+                        if(prevShit != shit)
+                            {clean = 1; textPos = 0;}
+                    }
+                }
 
+                TimeOut[pos] = TimeOut[pos] > 0? (TimeOut[pos] - 1) : 0;
+                if(Pressed[pos] != 0)
+                {
+                    if(USBD_Keyboard_release(&myHID, Pressed[pos]) == Pressed[pos])
+                    {
+                        Pressed[pos] = 0;
+                        update |= 2U;
+                    }
+                }
+            }
+        }
+        PinId_Write(rowPins[i], 1);
+    }
+    static uint32_t sendPeriodicCheck = 0;
+    if(sendPeriodicCheck == 50)
+    {
+        update |= 2U;
+        sendPeriodicCheck = 0;
+    }
+    
+    if(update)
+    {
+        if(clean)
+        {
+            uint8_t tmp[9] = {1, 0, 0, 0, 0, 0, 0, 0, 0};
+            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)tmp, 9);
+            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                    ;
+            clean = 0;
+        }
+        if(((update & 1U) == 1U) && shit == 3)
+        {
+            KeyboardHID_t shitHID = {1, 0, 0, {0, 0, 0, 0, 0, 0}};
+            USBD_Keyboard_press(&shitHID, txt[textPos]);
+            textPos = (textPos + 1) % size_txt; 
+            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
+            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                    ;
+            USBD_Keyboard_releaseAll(&shitHID);
+            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
+            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                    ;
+        }
+        else if (shit == 0)
+        {
+            myHID.ID = 1;
+            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myHID, sizeof(myHID));
+            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                    ;
+        }
+        update = 0;
+        GPIOC->ODR ^= (1U << 13U);
+    }
+    sendPeriodicCheck++;
+}
+
+void __attribute__((optimize("-O0"))) HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) 
+{
+    // if(htim == &htim3)
+    // NVIC_DisableIRQ(TIM3_IRQn);
+    // keyboardService();
+    // NVIC_EnableIRQ(TIM3_IRQn);
 }
 
 
@@ -134,6 +258,8 @@ int __attribute__((optimize("-O0"))) main(void)
 
     /* USER CODE BEGIN SysInit */
 
+    NVIC_SetPriority(OTG_FS_IRQn, 6);
+    NVIC_SetPriority(TIM3_IRQn, 67);
     /* USER CODE END SysInit */
 
     /* Initialize all configured peripherals */
@@ -142,8 +268,17 @@ int __attribute__((optimize("-O0"))) main(void)
     MX_USB_DEVICE_Init();
     /* USER CODE BEGIN 2 */
     TIM3->PSC = (84000000 / 1000000) - 1;
-    TIM3->ARR = (1000000 / 2000) - 1;
-    // HAL_TIM_Base_Start_IT(&htim3);
+    TIM3->ARR = (1000000 / 1000) - 1;
+    NVIC_SetPriority(OTG_FS_IRQn, 6);
+    NVIC_SetPriority(TIM3_IRQn, 67);
+    while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+        ;
+    uint8_t tmp[9] = {1, 0, 0, 0, 0, 0, 0, 0, 0};
+    USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)tmp, 9);
+    while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+        ;
+    HAL_Delay(1000);
+    HAL_TIM_Base_Start_IT(&htim3);
 
     /* USER CODE END 2 */
 
@@ -154,116 +289,7 @@ int __attribute__((optimize("-O0"))) main(void)
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
-        static int update = 0;
-        static int alternate = 0;
-        static int shit = 0;
-        static int clean = 0;
-        static uint8_t shitActivate = 0;
-        static int textPos = 0;
-        for(int i = 0; i < 5; i++)
-        {
-            PinId_Write(rowPins[i], 0);
-            volatile uint32_t j = 0;
-            for(; j < 10; j++)
-                ;
-            for(j = 0; j < 15; j++)
-            {
-                uint32_t pos = i * 15 + j;
-                if(!PinId_Read(colPins[j]))
-                {
-                    if(pos == 70) 
-                    {
-                        alternate = 1; continue;
-                    }
-                    if(j == 14)
-                    {
-                        shitActivate |= (1U << i);
-                        if((shitActivate == 0x1f) && (alternate == 1))
-                        {
-                            if(shit == 0U) shit = 2U;
-                            else if(shit == 3U) shit = 1U;
-                        }
-                    }
-                    
-                    uint16_t key = keys[pos];
-                    if(alternate && keys_alternate[pos] != 0)
-                        key = keys_alternate[pos];
-                    if(Pressed[pos] == 0 && TimeOut[pos] == 0)
-                    {
-                        if(USBD_Keyboard_press(&myHID, key) == key)
-                        {
-                            Pressed[pos] = key;
-                            update |= 1U;
-                        }
-                    }
-                    TimeOut[pos] = 50;
-                }
-                else
-                {
-                    if(pos == 70) 
-                    {
-                        alternate = 0; continue;
-                    }
-                    
-                    if(j == 14)
-                    {
-                        shitActivate &= ~(1U << i);
-                        if(shitActivate == 0)
-                        {
-                            int prevShit = shit;
-                            if(shit == 2U) shit = 3U;
-                            else if(shit == 1U) shit = 0U;
-                            if(prevShit != shit)
-                                {clean = 1; textPos = 0;}
-                        }
-                    }
-
-                    TimeOut[pos] = TimeOut[pos] > 0? (TimeOut[pos] - 1) : 0;
-                    if(Pressed[pos] != 0)
-                    {
-                        if(USBD_Keyboard_release(&myHID, Pressed[pos]) == Pressed[pos])
-                        {
-                            Pressed[pos] = 0;
-                            update |= 2U;
-                        }
-                    }
-                }
-            }
-            PinId_Write(rowPins[i], 1);
-        }
-        
-        if(update)
-        {   
-            if(clean)
-            {
-                const uint8_t tmp[9] = {1, 0, 0, 0, 0, 0, 0, 0, 0};
-                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)tmp, sizeof(myHID));
-                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-                        ;
-                clean = 0;
-            }
-            if(((update & 1U) == 1U) && shit == 3)
-            {
-                KeyboardHID_t shitHID = {1, 0, 0, {0, 0, 0, 0, 0, 0}};
-                USBD_Keyboard_press(&shitHID, txt[textPos]);
-                textPos = (textPos + 1) % size_txt; 
-                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
-                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-                        ;
-                USBD_Keyboard_releaseAll(&shitHID);
-                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
-                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-                        ;
-            }
-            else if (shit == 0)
-            {
-                myHID.ID = 1;
-                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myHID, sizeof(myHID));
-                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-                        ;
-            }
-            update = 0;
-        }
+        keyboardService();
         HAL_Delay(0);
     }
     /* USER CODE END 3 */
