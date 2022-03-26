@@ -312,58 +312,101 @@ __ALIGN_BEGIN static uint8_t USBD_HID_DeviceQualifierDesc[USB_LEN_DEV_QUALIFIER_
 
 __ALIGN_BEGIN static uint8_t HID_MOUSE_ReportDesc[HID_MOUSE_REPORT_DESC_SIZE] __ALIGN_END =
 {
-        //copy from arduino code https://github.com/arduino-libraries/Keyboard/blob/master/src/Keyboard.cpp
+    0x05, 0x01,       // USAGE_PAGE (Generic Desktop)
+	0x09, 0x06,       // USAGE (Keyboard)
+	0xA1, 0x01,       // COLLECTION (Application)
+	0x85, 0x01,       // REPORT_ID (1)
+	0x75, 0x01,       //   REPORT_SIZE (1)
+	0x95, 0x08,       //   REPORT_COUNT (8)
+	0x05, 0x07,       //   USAGE_PAGE (Keyboard)(Key Codes)
+	0x19, 0xE0,       //   USAGE_MINIMUM (Keyboard LeftControl)(224)
+	0x29, 0xE7,       //   USAGE_MAXIMUM (Keyboard Right GUI)(231)
+	0x15, 0x00,       //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,       //   LOGICAL_MAXIMUM (1)
+	0x81, 0x02,       //   INPUT (Data,Var,Abs) ; Modifier byte
+	0x95, 0x01,       //   REPORT_COUNT (1)
+	0x75, 0x08,       //   REPORT_SIZE (8)
+	0x81, 0x03,       //   INPUT (Cnst,Var,Abs) ; Reserved byte
+	0x95, 0x05,       //   REPORT_COUNT (5)
+	0x75, 0x01,       //   REPORT_SIZE (1)
+	0x05, 0x08,       //   USAGE_PAGE (LEDs)
+	0x19, 0x01,       //   USAGE_MINIMUM (Num Lock)
+	0x29, 0x05,       //   USAGE_MAXIMUM (Kana)
+	0x91, 0x02,       //   OUTPUT (Data,Var,Abs) ; LED report
+	0x95, 0x01,       //   REPORT_COUNT (1)
+	0x75, 0x03,       //   REPORT_SIZE (3)
+	0x91, 0x03,       //   OUTPUT (Cnst,Var,Abs) ; LED report padding
+	0x95, 0x05,       //   REPORT_COUNT (5)
+	0x75, 0x08,       //   REPORT_SIZE (8)
+	0x15, 0x00,       //   LOGICAL_MINIMUM (0)
+	0x26, 0xA4, 0x00, //   LOGICAL_MAXIMUM (164)
+	0x05, 0x07,       //   USAGE_PAGE (Keyboard)(Key Codes)
+	0x19, 0x00,       //   USAGE_MINIMUM (Reserved (no event indicated))(0)
+	0x2A, 0xA4, 0x00, //   USAGE_MAXIMUM (Keyboard Application)(164)
+	0x81, 0x00,       //   INPUT (Data,Ary,Abs)
+	0xC0,             // END_COLLECTION
+    
+    0x05, 0x0C,       // USAGE_PAGE (Consumer Devices)
+	0x09, 0x01,       // USAGE (Consumer Control)
+	0xA1, 0x01,       // COLLECTION (Application)
+	0x85, 0x02,       //   REPORT_ID (2)
+	0x19, 0x00,       //   USAGE_MINIMUM (Unassigned)
+	0x2A, 0x3C, 0x02, //   USAGE_MAXIMUM
+	0x15, 0x00,       //   LOGICAL_MINIMUM (0)
+	0x26, 0x3C, 0x02, //   LOGICAL_MAXIMUM
+	0x95, 0x01,       //   REPORT_COUNT (1)
+	0x75, 0x10,       //   REPORT_SIZE (16)
+	0x81, 0x00,       //   INPUT (Data,Ary,Abs)
+	0xC0,             // END_COLLECTION
+};
 
-        0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
-        0x09, 0x06,        // Usage (Keyboard)
-        0xA1, 0x01,        // Collection (Application)
-
-        0x85, 0x01,        //   Report ID (1)
-
-        0x05, 0x07,        //   Usage Page (Kbrd/Keypad)
-        0x19, 0xE0,        //   Usage Minimum (0xE0)
-        0x29, 0xE7,        //   Usage Maximum (0xE7)
-
-        0x15, 0x00,        //   Logical Minimum (0)
-        0x25, 0x01,        //   Logical Maximum (1)
-        0x75, 0x01,        //   Report Size (1)
-        0x95, 0x08,        //   Report Count (8)
-        0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
-        0x95, 0x01,        //   Report Count (1)
-        0x75, 0x08,        //   Report Size (8)
-        0x81, 0x03,        //   Input (Const,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
-        0x95, 0x06,        //   Report Count (6)
-        0x75, 0x08,        //   Report Size (8)
-        0x15, 0x00,        //   Logical Minimum (0)
-        0x25, 0x65,        //   Logical Maximum (101)
-        0x05, 0x07,        //   Usage Page (Kbrd/Keypad)
-        0x19, 0x00,        //   Usage Minimum (0x00)
-        0x29, 0x65,        //   Usage Maximum (0x65)
-        0x81, 0x00,        //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
-        0xC0,              // End Collection
-
-        // 47 bytes
-#if HID_MEDIA_REPORT
-        //help from http://www.microchip.com/forums/m618147.aspx
-        // https://github.com/markwj/hidmedia/blob/master/hidmedia.X/usb_descriptors.c
-        //
-
-        0x05, 0x0C,        // Usage Page (Consumer)
-        0x09, 0x01,        // Usage (Consumer Control)
-        0xA1, 0x01,        // Collection (Application)
-        0x85, HID_MEDIA_REPORT,        //   Report ID (VOLUME_REPORT )
-        0x19, 0x00,        //   Usage Minimum (Unassigned)
-        0x2A, 0x3C, 0x02,  //   Usage Maximum (AC Format)
-        0x15, 0x00,        //   Logical Minimum (0)
-        0x26, 0x3C, 0x02,  //   Logical Maximum (572)
-        0x95, 0x01,        //   Report Count (1)
-        0x75, 0x10,        //   Report Size (16)
-        0x81, 0x00,        //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
-        0xC0,              // End Collection
-
-        // 25 bytes
-#endif
-}; 
+// __ALIGN_BEGIN static uint8_t HID_MOUSE_ReportDesc[HID_MOUSE_REPORT_DESC_SIZE] __ALIGN_END =
+// {
+//         //copy from arduino code https://github.com/arduino-libraries/Keyboard/blob/master/src/Keyboard.cpp
+//         0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
+//         0x09, 0x06,        // Usage (Keyboard)
+//         0xA1, 0x01,        // Collection (Application)
+//         0x85, 0x01,        //   Report ID (1)
+//         0x05, 0x07,        //   Usage Page (Kbrd/Keypad)
+//         0x19, 0xE0,        //   Usage Minimum (0xE0)
+//         0x29, 0xE7,        //   Usage Maximum (0xE7)
+//         0x15, 0x00,        //   Logical Minimum (0)
+//         0x25, 0x01,        //   Logical Maximum (1)
+//         0x75, 0x01,        //   Report Size (1)
+//         0x95, 0x08,        //   Report Count (8)
+//         0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+//         0x95, 0x01,        //   Report Count (1)
+//         0x75, 0x08,        //   Report Size (8)
+//         0x81, 0x03,        //   Input (Const,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+//         0x95, 0x06,        //   Report Count (6)
+//         0x75, 0x08,        //   Report Size (8)
+//         0x15, 0x00,        //   Logical Minimum (0)
+//         0x25, 0x65,        //   Logical Maximum (101)
+//         0x05, 0x07,        //   Usage Page (Kbrd/Keypad)
+//         0x19, 0x00,        //   Usage Minimum (0x00)
+//         0x29, 0x65,        //   Usage Maximum (0x65)
+//         0x81, 0x00,        //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+//         0xC0,              // End Collection
+//         // 47 bytes
+// #if HID_MEDIA_REPORT
+//         //help from http://www.microchip.com/forums/m618147.aspx
+//         // https://github.com/markwj/hidmedia/blob/master/hidmedia.X/usb_descriptors.c
+//         //
+//         0x05, 0x0C,        // Usage Page (Consumer)
+//         0x09, 0x01,        // Usage (Consumer Control)
+//         0xA1, 0x01,        // Collection (Application)
+//         0x85, HID_MEDIA_REPORT,        //   Report ID (VOLUME_REPORT )
+//         0x19, 0x00,        //   Usage Minimum (Unassigned)
+//         0x2A, 0x3C, 0x02,  //   Usage Maximum (AC Format)
+//         0x15, 0x00,        //   Logical Minimum (0)
+//         0x26, 0x3C, 0x02,  //   Logical Maximum (572)
+//         0x95, 0x01,        //   Report Count (1)
+//         0x75, 0x10,        //   Report Size (16)
+//         0x81, 0x00,        //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+//         0xC0,              // End Collection
+//         // 25 bytes
+// #endif
+// }; 
 
 /**
   * @}

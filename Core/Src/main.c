@@ -61,23 +61,10 @@ static void MX_TIM3_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-typedef struct
-{
-    uint8_t length;
-    uint8_t busy;
-    uint8_t data[10];
-} send_t;
+
+#define TIMEOUT_MS 20
 
 extern USBD_HandleTypeDef hUsbDeviceFS;
- 
-volatile send_t sendMedia[2] = {
-    {0, 0, {0}},
-    {0, 0, {0}}
-};
-volatile send_t sendNormal[2] = {
-    {0, 0, {0}},
-    {0, 0, {0}}
-};
 
 volatile HID_StateTypeDef USBD_Keyboard_State()
 {
@@ -98,6 +85,7 @@ PinId_t* rowPins[5] = {
 };
 
 KeyboardHID_t myHID = {1};
+MediaHID_t myMedia = {2};
 uint16_t Pressed[75] = {0};
 uint16_t TimeOut[75] = {0};
 
@@ -136,16 +124,18 @@ void keyboardService()
                 
                 uint16_t key = keys[pos];
                 if(alternate && keys_alternate[pos] != 0)
+                {
                     key = keys_alternate[pos];
+                }
                 if(Pressed[pos] == 0 && TimeOut[pos] == 0)
                 {
-                    if(USBD_Keyboard_press(&myHID, key) == key)
+                    if(USBD_Keyboard_press(&myHID, &myMedia, key) == key)
                     {
+                        update |= ((key & 0xff00) == 0x8000)? 8U : 4U;
                         Pressed[pos] = key;
                         update |= 1U;
                     }
                 }
-                TimeOut[pos] = 50;
             }
             else
             {
@@ -170,24 +160,20 @@ void keyboardService()
                 TimeOut[pos] = TimeOut[pos] > 0? (TimeOut[pos] - 1) : 0;
                 if(Pressed[pos] != 0)
                 {
-                    if(USBD_Keyboard_release(&myHID, Pressed[pos]) == Pressed[pos])
+                    if(USBD_Keyboard_release(&myHID, &myMedia, Pressed[pos]) == Pressed[pos])
                     {
+                        update |= ((Pressed[pos] & 0xff00) == 0x8000)? 8U : 4U;
                         Pressed[pos] = 0;
                         update |= 2U;
+                        TimeOut[pos] = TIMEOUT_MS;
                     }
                 }
             }
         }
         PinId_Write(rowPins[i], 1);
     }
-    static uint32_t sendPeriodicCheck = 0;
-    if(sendPeriodicCheck == 50)
-    {
-        update |= 2U;
-        sendPeriodicCheck = 0;
-    }
     
-    if(update)
+    if(update & 3U)
     {
         if(clean)
         {
@@ -195,32 +181,47 @@ void keyboardService()
             USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)tmp, 9);
             while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
                     ;
+            uint8_t tmp1[3] = {2, 0, 0};
+            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)tmp1, 3);
+            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                    ;
             clean = 0;
         }
         if(((update & 1U) == 1U) && shit == 3)
         {
             KeyboardHID_t shitHID = {1, 0, 0, {0, 0, 0, 0, 0, 0}};
-            USBD_Keyboard_press(&shitHID, txt[textPos]);
+            MediaHID_t shitMedia = {2, {0, 0}};
+            USBD_Keyboard_press(&shitHID, &shitMedia, txt[textPos]);
             textPos = (textPos + 1) % size_txt; 
             USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
             while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
                     ;
-            USBD_Keyboard_releaseAll(&shitHID);
+            USBD_Keyboard_releaseAll(&shitHID, &shitMedia);
             USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
             while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
                     ;
         }
         else if (shit == 0)
         {
-            myHID.ID = 1;
-            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myHID, sizeof(myHID));
-            while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-                    ;
+            if(update & 8U)
+            {
+                myMedia.ID = 2;
+                if(myMedia.KEYCODE[0] == 0xe9)
+                    GPIOC->ODR ^= (1U << 13U);
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myMedia, sizeof(myMedia));
+                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                        ;
+            }
+            if(update & 4U)
+            {
+                myHID.ID = 1;
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&myHID, sizeof(myHID));
+                while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
+                        ;
+            }
         }
         update = 0;
-        GPIOC->ODR ^= (1U << 13U);
     }
-    sendPeriodicCheck++;
 }
 
 void __attribute__((optimize("-O0"))) HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) 
@@ -271,13 +272,6 @@ int __attribute__((optimize("-O0"))) main(void)
     TIM3->ARR = (1000000 / 1000) - 1;
     NVIC_SetPriority(OTG_FS_IRQn, 6);
     NVIC_SetPriority(TIM3_IRQn, 67);
-    while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-        ;
-    uint8_t tmp[9] = {1, 0, 0, 0, 0, 0, 0, 0, 0};
-    USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)tmp, 9);
-    while(((volatile USBD_HID_HandleTypeDef*)hUsbDeviceFS.pClassData)->state != HID_IDLE)
-        ;
-    HAL_Delay(1000);
     HAL_TIM_Base_Start_IT(&htim3);
 
     /* USER CODE END 2 */

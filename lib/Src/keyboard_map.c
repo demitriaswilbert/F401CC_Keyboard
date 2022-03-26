@@ -151,13 +151,13 @@ uint16_t keys[] = {
  
 uint16_t keys_alternate[] = { 
     0x00, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12, 0x00,   KEY_PRTSC, 
-    0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00, KEY_MEDIA_MUTE,   KEY_INSERT,
-    0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00,    0x00,   KEY_HOME,
+    0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    KEY_MEDIA_PREV,    KEY_MEDIA_NEXT, KEY_MEDIA_MUTE,   KEY_INSERT,
+    0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00, KEY_MEDIA_PAUSE,  KEY_HOME,
     0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00, KEY_MEDIA_VOLUP, KEY_END,
     0x00, 0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,   0x00,    0x00,    0x00, KEY_MEDIA_VOLDN, 0x00,
 };
 
-uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k)
+uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, MediaHID_t* pMediaHid, uint16_t k)
 {
     uint8_t i; uint16_t retVal = k;
     if ((k & 0xff00) == 0x100)
@@ -180,6 +180,12 @@ uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k)
         if ((k & 0xff00) == SHIFT)
             pKeyboardHid->MODIFIER |= (KEY_LEFT_SHIFT & 0xff);
     }
+    else if ((k & 0xff00) == 0x8000)
+    { // media
+        if(pMediaHid->KEYCODE[0] == 0)
+            pMediaHid->KEYCODE[0] = k & 0xffU;
+        return k;
+    }
     else if (!k)
         return 0;
 
@@ -194,7 +200,7 @@ uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k)
     return 0;
 }
 
-uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, uint16_t k)
+uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, MediaHID_t* pMediaHid, uint16_t k)
 {
     uint8_t i; uint16_t retVal = k;
     if ((k & 0xff00) == 0x100)
@@ -217,6 +223,12 @@ uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, uint16_t k)
         if ((k & 0xff00) == SHIFT)
             pKeyboardHid->MODIFIER &= ~(KEY_LEFT_SHIFT & 0xff);
     }
+    else if ((k & 0xff00) == 0x8000)
+    { // media
+        if(pMediaHid->KEYCODE[0] == (k & 0xffU))
+            pMediaHid->KEYCODE[0] = 0;
+        return k;
+    }
     else if (!k)
         return 0;
 
@@ -231,8 +243,10 @@ uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, uint16_t k)
     return 0;
 }
 
-void USBD_Keyboard_releaseAll(KeyboardHID_t* pKeyboardHid)
+void USBD_Keyboard_releaseAll(KeyboardHID_t* pKeyboardHid, MediaHID_t* pMediaHid)
 {
+    pMediaHid->KEYCODE[0] = 0;
+    pMediaHid->KEYCODE[1] = 0;
     pKeyboardHid->KEYCODE[0] = 0;
     pKeyboardHid->KEYCODE[1] = 0;
     pKeyboardHid->KEYCODE[2] = 0;

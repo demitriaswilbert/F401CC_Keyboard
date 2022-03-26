@@ -71,9 +71,14 @@
 #define KEY_NUM_ENTER ((uint16_t)0x58)
 #define KEY_NUM_PERIOD ((uint16_t)0x63)
 
-#define KEY_MEDIA_MUTE ((uint16_t)0x80e2)
-#define KEY_MEDIA_VOLUP ((uint16_t)0x80e9)
-#define KEY_MEDIA_VOLDN ((uint16_t)0x80ea)
+#define KEY_MEDIA_NEXT ((uint16_t)0x80B5) 
+#define KEY_MEDIA_PREV ((uint16_t)0x80B6) 
+#define KEY_MEDIA_STOP ((uint16_t)0x80B7)
+#define KEY_MEDIA_EJECT ((uint16_t)0x80B8)
+#define KEY_MEDIA_MUTE ((uint16_t)0x80E2)
+#define KEY_MEDIA_PAUSE ((uint16_t)0x80CD)
+#define KEY_MEDIA_VOLUP ((uint16_t)0x80E9)
+#define KEY_MEDIA_VOLDN ((uint16_t)0x80EA)
 
 typedef struct
 {
@@ -83,13 +88,19 @@ typedef struct
     uint8_t KEYCODE[6];
 } KeyboardHID_t;
 
+typedef struct
+{
+    uint8_t ID;
+    uint8_t KEYCODE[2];
+} MediaHID_t;
+
 extern uint16_t keys[];
 extern uint16_t keys_alternate[];
 
 
-uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, uint16_t k);
-uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, uint16_t k);
-void USBD_Keyboard_releaseAll(KeyboardHID_t* pKeyboardHid);
+uint32_t USBD_Keyboard_press(KeyboardHID_t* pKeyboardHid, MediaHID_t* pMediaHid, uint16_t k);
+uint32_t USBD_Keyboard_release(KeyboardHID_t* pKeyboardHid, MediaHID_t* pMediaHid, uint16_t k);
+void USBD_Keyboard_releaseAll(KeyboardHID_t* pKeyboardHid, MediaHID_t* pMediaHid);
 
 
 #endif //KEYBOARD_MAP_H
