@@ -27,6 +27,7 @@
 #include "GPIO_Config.h"
 #include "keyboard_map.h"
 #include "string.h"
+#include "stdlib.h"
 // #include "keyboard_map.h"
 /* USER CODE END Includes */
 
@@ -75,7 +76,7 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 PinId_t* colPins[COLS] = {
     PA0, PA1, PA2, PA3, PA4,
     PA5, PA6, PA7, PB0, PB9,
-    PB8, PB7, PB6, PB5, PB4
+    PB8, PB15, PB14, PB5, PB4
 };
 
 PinId_t* rowPins[ROWS] = {
@@ -103,6 +104,7 @@ void keyboardService()
     static int clean = 0;
     static uint8_t shitActivate = 0;
     static int textPos = 0;
+    static int npressed = 0;
 
     // scan matrix
     for(int i = 0; i < ROWS; i++)
@@ -144,6 +146,7 @@ void keyboardService()
                         update |= ((key & KEY_TYPE_MASK) == KEY_TYPE_MEDIA)? 8U : 4U; // update HID Type
                         update |= 1U;   // update pressed flag
                         Pressed[pos] = key; // assign key to pressed array
+                        npressed++;
                     }
                 }
             }
@@ -176,15 +179,27 @@ void keyboardService()
                         update |= 2U; // update release flag
                         Pressed[pos] = 0; // unassign key from pressed array
                         TimeOut[pos] = TIMEOUT_MS; // set debounce timeout
+                        npressed--;
                     }
                 }
             }
         }
         PinId_Write(rowPins[i], 1);
     }
+    static uint32_t shitTimer = 0;
+    if (shit == 3)
+    {
+        if ((HAL_GetTick() - shitTimer >= 500) && npressed > 0)
+        {
+            update |= 1U;
+            shitTimer = HAL_GetTick() - (500);
+        }
+        else if (npressed == 0)
+            shitTimer = HAL_GetTick();
+    }
     
     // send report
-    if(update & 3U)
+    if (update & 3U)
     {
         if(clean)
         {
