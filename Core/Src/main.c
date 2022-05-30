@@ -195,7 +195,10 @@ void keyboardService()
             shitTimer = HAL_GetTick() - (500);
         }
         else if (npressed == 0)
+        {
             shitTimer = HAL_GetTick();
+            textPos %= size_txt; 
+        }
     }
     
     // send report
@@ -219,16 +222,18 @@ void keyboardService()
             KeyboardHID_t shitHID = {HID_NORMAL_ID, 0, 0, {0, 0, 0, 0, 0, 0}};
             MediaHID_t shitMedia = {HID_MEDIA_ID, {0, 0}};
             // press
-            USBD_Keyboard_press(&shitHID, &shitMedia, txt[textPos]);
-            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
-            while(USBD_Keyboard_State() != HID_IDLE)
+            if(textPos < size_txt)
+            {
+                USBD_Keyboard_press(&shitHID, &shitMedia, txt[textPos++]);
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
+                while(USBD_Keyboard_State() != HID_IDLE)
+                        ;
+                // release
+                USBD_Keyboard_releaseAll(&shitHID, &shitMedia);
+                USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
+                while(USBD_Keyboard_State() != HID_IDLE)
                     ;
-            // release
-            USBD_Keyboard_releaseAll(&shitHID, &shitMedia);
-            USBD_HID_SendReport(&hUsbDeviceFS, (uint8_t*)&shitHID, sizeof(shitHID));
-            while(USBD_Keyboard_State() != HID_IDLE)
-                    ;
-            textPos = (textPos + 1) % size_txt; 
+            }
         }
         else if (shit == 0)
         {
